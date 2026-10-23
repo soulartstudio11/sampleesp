@@ -1,0 +1,814 @@
+FreshNest Smart Fruit Basket 🍎
+Complete Project Presentation — English + Malayalam
+Project explanation, working principle, hardware, software, advantages, limitations, and viva questions with answers.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4
+
+
+
+
+
+
+
+
+FreshNest is an IoT-based smart fruit basket designed to monitor how much fruit remains in a basket and measure gas sensor readings. It sends sensor data to an online backend, displays the information on a website, and can send email alerts when configured conditions are met.
+
+The key idea is to make fruit storage monitoring more convenient through automation and remote access.
+Part 1 — English presentation
+1. Introduction
+Good morning respected teachers and judges.
+
+My project is called FreshNest Smart Fruit Basket.
+
+FreshNest is an Internet of Things, or IoT, based system designed to monitor the fruit level inside a basket and observe gas sensor readings.
+
+In our daily lives, we often forget to check how much fruit is left in a basket. We may discover that the basket is nearly empty only when we need fruit. It can also be useful to monitor changes in the surrounding air near stored fruit.
+
+To address these problems, I developed the concept of a smart basket that uses sensors, an ESP32 microcontroller, cloud communication, a web dashboard, and email notifications.
+
+The system is designed to monitor the basket remotely without requiring the user to check it manually every time.
+2. Problem statement
+Traditional fruit baskets do not provide automatic information about their contents.
+
+The main problems are:
+- We must manually check the remaining fruit.
+- We may forget to replenish the basket.
+- We cannot easily monitor the basket remotely.
+- We have no automatic notification when the measured fruit level becomes low.
+- We cannot easily observe gas sensor readings over time without a monitoring system.
+FreshNest aims to address these problems through continuous sensor monitoring and online notifications.
+3. Objectives
+The main objectives of FreshNest are:
+1. Measure the distance between the ultrasonic sensor and the fruit surface.
+2. Convert that distance into an estimated basket fill percentage.
+3. Read the output of an MQ-3 gas sensor.
+4. Send sensor readings to a cloud MQTT broker.
+5. Process and monitor the readings using a backend running on Render.
+6. Display live information on a website.
+7. Send email alerts when configured thresholds are crossed.
+8. Store settings and historical readings using JSON files.
+Important: FreshNest does not use a weight sensor. It estimates the fill level using distance measurements. It also does not automatically order fruit in the current version.
+4. Hardware components
+
+
+
+
+
+
+
+
+
+1. ESP32 microcontroller
+
+The ESP32 is the main controller. It reads the sensors and sends their readings to the cloud using Wi-Fi.
+
+Its built-in Wi-Fi capability makes it suitable for IoT projects.
+
+
+
+
+
+
+
+
+
+
+
+
+2. HC-SR04 ultrasonic sensor
+
+This sensor measures the distance from the top of the basket to the fruit surface.
+
+The system uses this distance to estimate how full the basket is.
+
+
+
+
+
+
+
+
+
+
+
+
+3. MQ-3 gas sensor
+
+This sensor responds primarily to alcohol vapors and certain other gases. FreshNest records its readings to observe changes in the environment around the basket.
+
+Its reading alone cannot prove that fruit is spoiled.
+
+
+
+
+
+
+
+
+
+
+
+
+4. Fruit basket
+
+The basket holds the fruit. The ultrasonic sensor is mounted above the fruit and points downward toward the surface.
+
+
+
+Example wiring
+Component	ESP32 connection
+HC-SR04 TRIG	GPIO 5
+HC-SR04 ECHO	GPIO 18 through a voltage divider or level shifter
+MQ-3 analog output	GPIO 34, with safe input voltage
+Sensor power and ground	According to the module specifications
+
+Safety note: The ESP32 GPIO inputs are not 5 V tolerant. The HC-SR04 ECHO output and MQ-3 analog output must be checked and reduced to a safe voltage where necessary.
+5. Software and online technologies
+FreshNest uses several software components.
+
+HTML, CSS and JavaScript — frontend
+
+HTML structures the dashboard, CSS styles it, and JavaScript requests sensor data from the backend and updates the interface.
+
+
+
+
+MQTT and EMQX Cloud
+
+MQTT is the messaging protocol used to transport telemetry from the ESP32 to the cloud broker. EMQX receives the published messages and makes them available to the subscribed backend.
+
+
+
+
+Node.js and Express — backend
+
+The backend receives sensor messages, processes data, applies alert rules, serves API endpoints, and manages JSON-based settings and history.
+
+
+
+
+Render — backend hosting
+
+Render runs the backend independently of whether the user has the dashboard open. The service must remain operational and connected to EMQX for continuous monitoring.
+
+
+
+
+JSON files — data storage
+
+JSON files store settings, readings, and alert history on the backend's persistent disk. FreshNest does not require SQL or PostgreSQL.
+
+
+
+
+Gmail SMTP — email alerts
+
+The backend can send emails when a configured alert condition occurs. Email delivery requires valid SMTP configuration.
+
+
+
+6. How the system works
+Sensors
+
+HC-SR04 distance + MQ-3 raw gas reading
+
+ESP32
+
+Reads sensors and prepares telemetry
+
+EMQX Cloud
+
+Receives MQTT messages
+
+Render backend
+
+Calculates fill level, evaluates alerts, stores JSON data
+
+Web dashboard
+
+Live readings and history
+
+
+Email alerts
+
+Notifications on threshold crossings
+
+
+
+
+The important point is that the ESP32 does not need to communicate directly with the user's browser. It publishes messages to EMQX, and the backend receives them.
+
+The dashboard requests data from the backend through API endpoints. Therefore, the user can close the website while the backend continues monitoring, provided the Render service, network connections, and sensors are working.
+7. How the ultrasonic sensor calculates fruit percentage
+The ultrasonic sensor measures the distance from the sensor to the top of the fruit.
+- When the basket is nearly empty, the measured distance is large.
+- When the basket is nearly full, the measured distance is small.
+Suppose:
+- \(D_e\) = distance when the basket is empty
+- \(D_f\) = distance when the basket is considered full
+- \(D\) = current measured distance
+The estimated fill percentage is:
+\[
+\text{Fill \%} =
+\frac{D_e-D}{D_e-D_f}\times100
+\]
+
+The result is limited to the range from 0% to 100%.
+Example
+Assume the sensor is 40 cm above the bottom reference point, and the full-basket distance is calibrated to 2 cm.
+Measured distance	Estimated fill level
+40 cm	0%
+30.5 cm	25%
+21 cm	50%
+11.5 cm	75%
+2 cm	100%
+
+These are illustrative values, not guaranteed sensor readings. The actual result depends on mounting height and calibration.
+
+Limitation: Fruit surfaces are irregular. The ultrasonic sensor estimates the surface level, not the exact number, mass, or volume of individual fruits.
+8. How the MQ-3 sensor works
+The MQ-3 is a gas sensor that is particularly responsive to alcohol vapors.
+
+The ESP32 reads its analog output through GPIO 34 and publishes the raw reading to the backend.
+
+The website can display this reading and compare it with a threshold configured by the user.
+
+However, an MQ-3 sensor does not identify every gas separately. It can be affected by temperature, humidity, sensor warm-up, and other vapors. Therefore, a high reading should be treated as a gas-sensor alert, not definitive proof of fruit spoilage.
+
+In the current configuration, the gas threshold should remain unconfigured until the sensor is tested and calibrated.
+9. MQTT communication
+MQTT stands for Message Queuing Telemetry Transport.
+
+It is a lightweight messaging protocol commonly used in IoT systems.
+
+FreshNest uses a publish-subscribe architecture:
+- Publisher: ESP32
+- Broker: EMQX Cloud
+- Subscriber: FreshNest backend
+- Topic: freshnest/basket01/telemetry
+The ESP32 publishes telemetry messages to the topic. The backend subscribes to that topic and processes incoming messages.
+
+The backend uses secure MQTT over TLS on port 8883.
+
+A simplified telemetry message might look like this:
+{
+  "distanceCm": 18.5,
+  "gasRaw": 1250,
+  "sensorValid": true,
+  "timestampMs": 1792600000000
+}
+
+
+These values are examples. The actual ESP32 firmware must publish the corresponding real measurements.
+10. Backend and Render
+The backend is the central processing part of FreshNest.
+
+It is responsible for:
+- Receiving telemetry from EMQX.
+- Converting distance into estimated fill percentage.
+- Checking low-fruit and gas alert conditions.
+- Saving settings and history in JSON files.
+- Providing data to the website through API endpoints.
+- Sending emails when configured alert conditions are triggered.
+Render is used to host this backend. The website and backend are deployed separately.
+
+This is important because the backend must continue operating when the dashboard is closed.
+
+A persistent disk is needed if JSON settings and history must survive service restarts and redeployments. The hosting plan must support that disk.
+11. Website dashboard
+The website is the user-facing interface. It can be opened from a computer, tablet, or smartphone browser.
+
+
+
+
+
+
+
+
+
+Dashboard
+
+Shows the estimated fruit fill percentage, distance, gas reading, sensor connection status, and last update.
+
+
+
+
+
+
+
+
+
+
+
+Monitoring and history
+
+Shows recent measurements and historical trends, making it easier to observe changes over time.
+
+
+
+
+
+
+
+
+
+
+
+Control and settings
+
+Allows authorized users to adjust the basket calibration, low-fruit threshold, recipient email, and notification preferences.
+
+
+
+
+
+
+
+
+
+
+
+Alerts
+
+Displays recorded alert events and helps the user understand why a notification was generated.
+
+
+
+The intended dashboard refresh interval is approximately 0.5 seconds. Actual update speed depends on the frontend polling implementation, network, backend, and incoming sensor messages. A refresh every 0.5 seconds does not mean the sensor itself is necessarily measuring or publishing at that exact rate.
+12. Email notification logic
+FreshNest can notify the user when the estimated fruit level falls below a configured threshold.
+
+The initial low-fruit threshold is 15%.
+
+Example:
+- Fruit level is 40%: no low-fruit alert.
+- Fruit level is 20%: no low-fruit alert.
+- Fruit level falls to 14%: send a low-fruit alert if enabled.
+- Fruit level remains at 14%: do not repeatedly send the same alert.
+- Fruit level rises above the threshold and later falls below it again: another alert may be sent.
+This crossing-based approach prevents repeated emails for the same continuous low-level condition.
+
+The gas alert follows a similar idea, but it should only be enabled after the sensor threshold is calibrated.
+13. JSON storage
+FreshNest uses JSON files instead of a relational database.
+
+JSON stands for JavaScript Object Notation. It stores structured data as key-value pairs, arrays, and objects.
+
+Example settings:
+{
+  "basketHeightCm": 40,
+  "fullDistanceCm": 2,
+  "lowFruitThreshold": 15,
+  "recipientEmail": "example@example.com",
+  "gasThreshold": null
+}
+
+
+This is an illustrative settings structure; the exact field names must match the implemented backend.
+
+The JSON storage can contain:
+- Basket calibration settings.
+- Low-fruit threshold.
+- Gas threshold.
+- Recipient email address.
+- Historical telemetry.
+- Alert records.
+The files should be stored on Render's persistent disk rather than relying on temporary application storage.
+
+JSON is suitable for a small project, but it needs careful file handling and access controls. It is not as suitable as a proper database for large, concurrent workloads.
+14. Security
+Security is important because FreshNest uses cloud communication and email credentials.
+
+The main security measures are:
+- Use TLS for MQTT connections.
+- Keep EMQX credentials in Render environment variables.
+- Keep Gmail app passwords out of frontend code and GitHub.
+- Protect admin-only settings and testing endpoints.
+- Validate incoming sensor data.
+- Restrict browser access to the backend using the correct CORS origin.
+- Store persistent JSON files outside publicly served frontend folders.
+CORS is not a replacement for authentication. It controls which browser origins are allowed to make cross-origin requests, while backend authentication protects sensitive actions.
+15. Advantages
+1. Remote monitoring through a website.
+2. No need to open the dashboard continuously.
+3. Automatic low-fruit notifications.
+4. Historical sensor information.
+5. Adjustable thresholds.
+6. A modular design that separates hardware, messaging, backend, and interface.
+7. No SQL database is required for this version.
+8. The website can be accessed on multiple device types.
+16. Limitations and future improvements
+Current limitations
+- Fill percentage is an estimate based on surface distance.
+- Irregular fruit arrangements can affect ultrasonic readings.
+- MQ-3 readings cannot independently establish whether fruit is spoiled.
+- Wi-Fi or cloud outages can interrupt remote monitoring.
+- Email delivery depends on correct SMTP configuration.
+- Persistent JSON storage depends on a correctly configured disk.
+- Automatic fruit ordering is not enabled.
+Future improvements
+- Add a sensor better suited to measuring gases associated with fruit ripening.
+- Use temperature and humidity sensors to improve environmental monitoring.
+- Improve fill-level estimation through calibration and filtering.
+- Add a battery and power-status monitor.
+- Add more advanced trend analysis.
+- Introduce automatic ordering only after reliable threshold testing and user authorization.
+17. Conclusion
+To conclude, FreshNest Smart Fruit Basket combines sensors, an ESP32, MQTT cloud messaging, a backend hosted on Render, JSON storage, a web dashboard, and email notifications.
+
+Its main purpose is to make fruit-level monitoring more convenient and to notify users when configured conditions occur.
+
+The project demonstrates how IoT hardware and web technologies can work together to build a practical smart monitoring system.
+
+Thank you.
+
+Part 2 — മലയാളത്തിലുള്ള പ്രോജക്ട് പ്രസന്റേഷൻ
+1. ആമുഖം
+ബഹുമാനപ്പെട്ട അധ്യാപകരേ, വിധികർത്താക്കളേ, എല്ലാവർക്കും എന്റെ ഹൃദയം നിറഞ്ഞ നമസ്കാരം.
+
+എന്റെ പ്രോജക്ടിന്റെ പേര് FreshNest Smart Fruit Basket എന്നാണ്.
+
+ഇത് IoT അഥവാ Internet of Things സാങ്കേതികവിദ്യ ഉപയോഗിച്ച് പ്രവർത്തിക്കുന്ന ഒരു സ്മാർട്ട് ഫ്രൂട്ട് ബാസ്‌കറ്റ് സംവിധാനമാണ്.
+
+സാധാരണയായി നമ്മുടെ വീട്ടിലെ പഴക്കൂടയിൽ എത്ര പഴങ്ങൾ ബാക്കിയുണ്ടെന്ന് അറിയാൻ നമ്മൾ നേരിട്ട് പരിശോധിക്കണം. ചിലപ്പോൾ പഴങ്ങൾ തീരാറായ വിവരം നമ്മൾ വൈകിയാണ് അറിയുന്നത്. കൂടാതെ, പഴങ്ങൾ സൂക്ഷിച്ചിരിക്കുന്ന സ്ഥലത്തെ ഗ്യാസ് സെൻസർ റീഡിങ്ങുകളും നിരീക്ഷിക്കാൻ സാധിക്കുന്ന ഒരു സംവിധാനം പ്രയോജനകരമായിരിക്കും.
+
+ഈ പ്രശ്നങ്ങൾക്ക് പരിഹാരമായി, സെൻസറുകൾ, ESP32 മൈക്രോകൺട്രോളർ, ക്ലൗഡ് കമ്മ്യൂണിക്കേഷൻ, വെബ് ഡാഷ്‌ബോർഡ്, ഇമെയിൽ അലർട്ടുകൾ എന്നിവ സംയോജിപ്പിച്ചാണ് FreshNest രൂപകൽപ്പന ചെയ്തിരിക്കുന്നത്.
+
+ഇതിലൂടെ പഴക്കൂടയിലെ ഏകദേശ നിറവ് ദൂരത്തുനിന്ന് നിരീക്ഷിക്കാനും നിശ്ചയിച്ചിട്ടുള്ള പരിധികൾ കടക്കുമ്പോൾ അറിയിപ്പുകൾ സ്വീകരിക്കാനും സാധിക്കും.
+2. ഈ പ്രോജക്ട് പരിഹരിക്കാൻ ശ്രമിക്കുന്ന പ്രശ്നം
+സാധാരണ പഴക്കൂടകൾക്ക് സ്വയം അവയിലെ പഴങ്ങളുടെ അളവ് അറിയിക്കാൻ കഴിയില്ല.
+
+പ്രധാന പ്രശ്നങ്ങൾ:
+- പഴങ്ങൾ എത്ര ബാക്കിയുണ്ടെന്ന് നേരിട്ട് പരിശോധിക്കണം.
+- പഴങ്ങൾ തീരുന്നതിന് മുമ്പ് വാങ്ങാൻ മറന്നുപോകാം.
+- ദൂരത്തുനിന്ന് പഴക്കൂട നിരീക്ഷിക്കാൻ സാധിക്കില്ല.
+- പഴങ്ങളുടെ അളവ് കുറയുമ്പോൾ സ്വയം അറിയിപ്പ് ലഭിക്കില്ല.
+- സെൻസർ റീഡിങ്ങുകൾ കാലക്രമത്തിൽ നിരീക്ഷിക്കാൻ പ്രത്യേക സംവിധാനം വേണം.
+FreshNest ഈ പ്രശ്നങ്ങൾ പരിഹരിക്കാൻ സെൻസർ നിരീക്ഷണവും ഓൺലൈൻ അറിയിപ്പുകളും ഉപയോഗിക്കുന്നു.
+3. പ്രോജക്ടിന്റെ ലക്ഷ്യങ്ങൾ
+ഈ പ്രോജക്ടിന്റെ പ്രധാന ലക്ഷ്യങ്ങൾ:
+1. അൾട്രാസോണിക് സെൻസർ ഉപയോഗിച്ച് പഴങ്ങളുടെ ഉപരിതലത്തിലേക്കുള്ള ദൂരം അളക്കുക.
+2. ആ ദൂരം ഉപയോഗിച്ച് പഴക്കൂടയിലെ ഏകദേശ നിറവ് ശതമാനം കണക്കാക്കുക.
+3. MQ-3 ഗ്യാസ് സെൻസറിന്റെ റീഡിങ് വായിക്കുക.
+4. ESP32 വഴി സെൻസർ ഡാറ്റ ക്ലൗഡിലേക്ക് അയയ്ക്കുക.
+5. EMQX MQTT ബ്രോക്കർ ഉപയോഗിച്ച് ഡാറ്റ കൈമാറുക.
+6. Render-ൽ പ്രവർത്തിക്കുന്ന ബാക്ക്‌എൻഡ് വഴി ഡാറ്റ പ്രോസസ് ചെയ്യുക.
+7. വെബ്‌സൈറ്റിൽ ലൈവ് വിവരങ്ങൾ കാണിക്കുക.
+8. നിശ്ചയിച്ച പരിധികൾ കടക്കുമ്പോൾ ഇമെയിൽ അലർട്ടുകൾ അയയ്ക്കുക.
+9. JSON ഫയലുകളിൽ സെറ്റിങ്‌സും ചരിത്ര ഡാറ്റയും സൂക്ഷിക്കുക.
+പ്രധാന കാര്യം: ഈ പ്രോജക്ടിൽ വെയിറ്റ് സെൻസർ ഉപയോഗിക്കുന്നില്ല. പഴങ്ങളുടെ ഭാരം അളക്കുന്നതുമില്ല. നിലവിലെ പതിപ്പിൽ പഴങ്ങൾ സ്വയം ഓർഡർ ചെയ്യുന്ന സംവിധാനവും ഇല്ല.
+4. ഹാർഡ്‌വെയർ ഘടകങ്ങൾ
+ESP32 മൈക്രോകൺട്രോളർ
+ESP32 ആണ് പ്രോജക്ടിന്റെ പ്രധാന കൺട്രോളർ.
+
+ഇത് സെൻസറുകളിൽനിന്നുള്ള റീഡിങ്ങുകൾ സ്വീകരിക്കുകയും Wi-Fi ഉപയോഗിച്ച് ക്ലൗഡിലേക്ക് അയയ്ക്കുകയും ചെയ്യുന്നു.
+
+ESP32-യിൽ Wi-Fi സൗകര്യം ഉള്ളതിനാൽ IoT പ്രോജക്ടുകൾക്ക് ഇത് അനുയോജ്യമാണ്.
+HC-SR04 അൾട്രാസോണിക് സെൻസർ
+ഈ സെൻസർ പഴക്കൂടയുടെ മുകളിൽ സ്ഥാപിച്ച് താഴേക്ക് പഴങ്ങളുടെ ഉപരിതലത്തിലേക്ക് ദൂരം അളക്കുന്നു.
+
+പഴങ്ങൾ കുറവായിരിക്കുമ്പോൾ ദൂരം കൂടുതലായിരിക്കും. പഴക്കൂട നിറയുമ്പോൾ ദൂരം കുറയും.
+
+ഈ അളവ് ഉപയോഗിച്ചാണ് നിറവ് ശതമാനം കണക്കാക്കുന്നത്.
+MQ-3 ഗ്യാസ് സെൻസർ
+MQ-3 പ്രധാനമായും ആൽക്കഹോൾ വാതകങ്ങളോട് പ്രതികരിക്കുന്ന ഒരു സെൻസറാണ്.
+
+ഇതിന്റെ റീഡിങ് ESP32 വായിച്ച് ക്ലൗഡിലേക്ക് അയയ്ക്കുന്നു. ഈ റീഡിങ്ങിലെ മാറ്റങ്ങൾ നിരീക്ഷിക്കാം.
+
+എന്നാൽ MQ-3 റീഡിങ് മാത്രം ഉപയോഗിച്ച് പഴം കേടായെന്ന് ഉറപ്പിക്കാൻ കഴിയില്ല.
+പഴക്കൂട
+പഴങ്ങൾ സൂക്ഷിക്കുന്ന ഭാഗമാണിത്. അൾട്രാസോണിക് സെൻസർ പഴങ്ങളുടെ ഉപരിതലത്തിലേക്ക് നോക്കുന്ന രീതിയിൽ മുകളിൽ സ്ഥാപിക്കുന്നു.
+5. സോഫ്റ്റ്‌വെയർ ഘടകങ്ങൾ
+FreshNest-ൽ പല സോഫ്റ്റ്‌വെയർ സാങ്കേതികവിദ്യകളും ഉപയോഗിക്കുന്നു.
+- HTML: വെബ്‌പേജിന്റെ ഘടന നിർമിക്കുന്നു.
+- CSS: വെബ്‌സൈറ്റിന്റെ ഡിസൈനും രൂപവും ക്രമീകരിക്കുന്നു.
+- JavaScript: ബാക്ക്‌എൻഡിൽനിന്ന് ഡാറ്റ സ്വീകരിച്ച് ഡാഷ്‌ബോർഡ് പുതുക്കുന്നു.
+- Node.js, Express: ബാക്ക്‌എൻഡ് പ്രവർത്തിപ്പിക്കുകയും API നൽകുകയും ചെയ്യുന്നു.
+- MQTT: സെൻസർ ഡാറ്റ കൈമാറാൻ ഉപയോഗിക്കുന്നു.
+- EMQX Cloud: MQTT സന്ദേശങ്ങൾ സ്വീകരിക്കുന്ന ബ്രോക്കറാണ്.
+- Render: ബാക്ക്‌എൻഡ് ഓൺലൈനായി പ്രവർത്തിപ്പിക്കുന്നു.
+- JSON: സെറ്റിങ്‌സും ചരിത്ര വിവരങ്ങളും സൂക്ഷിക്കുന്നു.
+- Gmail SMTP: ഇമെയിൽ അറിയിപ്പുകൾ അയയ്ക്കാൻ ഉപയോഗിക്കുന്നു.
+ഈ പതിപ്പിൽ SQL അല്ലെങ്കിൽ PostgreSQL ഡാറ്റാബേസ് ഉപയോഗിക്കേണ്ടതില്ല.
+6. സിസ്റ്റം എങ്ങനെ പ്രവർത്തിക്കുന്നു?
+ആദ്യം HC-SR04 സെൻസർ പഴങ്ങളുടെ ഉപരിതലത്തിലേക്കുള്ള ദൂരം അളക്കുന്നു.
+
+MQ-3 സെൻസർ അതിന്റെ ഗ്യാസ് റീഡിങ് നൽകുന്നു.
+
+ESP32 ഈ റീഡിങ്ങുകൾ സ്വീകരിച്ച് MQTT സന്ദേശമായി EMQX Cloud-ലേക്ക് അയയ്ക്കുന്നു.
+
+EMQX-ലേക്ക് സബ്സ്ക്രൈബ് ചെയ്തിരിക്കുന്ന FreshNest ബാക്ക്‌എൻഡ് സന്ദേശങ്ങൾ സ്വീകരിക്കുന്നു.
+
+ബാക്ക്‌എൻഡ് ദൂരം ഉപയോഗിച്ച് നിറവ് ശതമാനം കണക്കാക്കുകയും അലർട്ട് നിബന്ധനകൾ പരിശോധിക്കുകയും JSON ഫയലുകളിൽ ഡാറ്റ സൂക്ഷിക്കുകയും ചെയ്യുന്നു.
+
+വെബ്‌സൈറ്റ് API വഴി ബാക്ക്‌എൻഡിൽനിന്ന് വിവരങ്ങൾ സ്വീകരിച്ച് ഡാഷ്‌ബോർഡിൽ കാണിക്കുന്നു.
+
+നിശ്ചയിച്ച അലർട്ട് നിബന്ധനകൾ പാലിക്കപ്പെടുമ്പോൾ ബാക്ക്‌എൻഡ് ഇമെയിൽ അയയ്ക്കുന്നു.
+7. പഴക്കൂടയിലെ നിറവ് ശതമാനം കണക്കാക്കുന്നത്
+അൾട്രാസോണിക് സെൻസർ പഴങ്ങളുടെ ഉപരിതലത്തിലേക്കുള്ള ദൂരം അളക്കുന്നു.
+- പഴങ്ങൾ കുറവാണെങ്കിൽ ദൂരം കൂടുതലായിരിക്കും.
+- പഴങ്ങൾ കൂടുതലാണെങ്കിൽ ദൂരം കുറവായിരിക്കും.
+ഉദാഹരണത്തിന്, പഴക്കൂടയുടെ കാലിബ്രേറ്റ് ചെയ്ത ഒഴിഞ്ഞ ദൂരം 40 സെന്റിമീറ്ററും നിറഞ്ഞിരിക്കുമ്പോഴുള്ള ദൂരം 2 സെന്റിമീറ്ററുമാണെന്ന് കരുതുക.
+നിലവിലെ ദൂരം	ഏകദേശ നിറവ്
+40 cm	0%
+30.5 cm	25%
+21 cm	50%
+11.5 cm	75%
+2 cm	100%
+
+ഇവ ഉദാഹരണ കണക്കുകളാണ്. യഥാർഥ റീഡിങ്ങുകൾ സെൻസറിന്റെ സ്ഥാനം, പഴങ്ങളുടെ ക്രമീകരണം, കാലിബ്രേഷൻ എന്നിവയെ ആശ്രയിച്ചിരിക്കും.
+
+ഈ സംവിധാനം പഴങ്ങളുടെ കൃത്യമായ എണ്ണമോ ഭാരമോ അളക്കുന്നില്ല. ഇത് ഉപരിതല ദൂരം ഉപയോഗിച്ചുള്ള ഒരു ഏകദേശ നിറവ് കണക്കാണ്.
+8. ഗ്യാസ് സെൻസർ എങ്ങനെ പ്രവർത്തിക്കുന്നു?
+MQ-3 സെൻസർ പ്രധാനമായും ആൽക്കഹോൾ വാതകങ്ങളോട് പ്രതികരിക്കുന്നു.
+
+ESP32-യിലെ GPIO 34 ഉപയോഗിച്ച് അതിന്റെ അനലോഗ് റീഡിങ് സ്വീകരിക്കുന്നു.
+
+ബാക്ക്‌എൻഡ് ആ റീഡിങ് വെബ്‌സൈറ്റിൽ കാണിക്കുകയും ഉപയോക്താവ് ക്രമീകരിച്ചിട്ടുള്ള പരിധിയുമായി താരതമ്യം ചെയ്യുകയും ചെയ്യാം.
+
+എന്നാൽ ഈ സെൻസറിന്റെ റീഡിങ് മാത്രം ഉപയോഗിച്ച് പഴങ്ങൾ കേടായെന്ന് തെളിയിക്കാൻ കഴിയില്ല. അതിനാൽ സെൻസർ ശരിയായി പരിശോധിച്ച് കാലിബ്രേറ്റ് ചെയ്തശേഷം മാത്രമേ ഗ്യാസ് അലർട്ട് പരിധി ക്രമീകരിക്കാവൂ.
+9. MQTT എന്താണ്?
+MQTT എന്നതിന്റെ പൂർണരൂപം Message Queuing Telemetry Transport എന്നാണ്.
+
+IoT ഉപകരണങ്ങൾക്കിടയിൽ സന്ദേശങ്ങൾ കൈമാറാൻ ഉപയോഗിക്കുന്ന ലഘുവായ ഒരു കമ്മ്യൂണിക്കേഷൻ പ്രോട്ടോക്കോളാണ് ഇത്.
+
+FreshNest-ൽ:
+- ESP32 ഡാറ്റ പ്രസിദ്ധീകരിക്കുന്ന ഉപകരണമാണ്.
+- EMQX Cloud സന്ദേശങ്ങൾ സ്വീകരിക്കുന്ന ബ്രോക്കറാണ്.
+- Render ബാക്ക്‌എൻഡ് സന്ദേശങ്ങൾ സ്വീകരിക്കുന്ന സബ്സ്ക്രൈബറാണ്.
+ഡാറ്റ freshnest/basket01/telemetry എന്ന ടോപ്പിക്കിലൂടെയാണ് കൈമാറുന്നത്.
+
+ഈ സംവിധാനം ഉപകരണവും വെബ്‌സൈറ്റും തമ്മിൽ നേരിട്ട് കണക്ഷൻ ആവശ്യമില്ലാതെ ഡാറ്റ കൈമാറാൻ സഹായിക്കുന്നു.
+10. Render എന്തിനാണ് ഉപയോഗിക്കുന്നത്?
+Render ആണ് FreshNest-ന്റെ ബാക്ക്‌എൻഡ് പ്രവർത്തിക്കുന്ന ഓൺലൈൻ പ്ലാറ്റ്‌ഫോം.
+
+വെബ്‌സൈറ്റ് അടച്ചാലും ബാക്ക്‌എൻഡ് പ്രവർത്തിച്ചുകൊണ്ടിരിക്കാം.
+
+ബാക്ക്‌എൻഡ് പ്രവർത്തിക്കുന്ന സമയത്ത് അത് EMQX-ൽനിന്ന് സെൻസർ ഡാറ്റ സ്വീകരിക്കുകയും അലർട്ടുകൾ പരിശോധിക്കുകയും JSON ഡാറ്റ സൂക്ഷിക്കുകയും ഇമെയിലുകൾ അയയ്ക്കുകയും ചെയ്യുന്നു.
+
+വെബ്‌സൈറ്റ് ഉപയോക്താവിന് വിവരങ്ങൾ കാണിക്കാനുള്ള ഇന്റർഫേസാണ്. ബാക്ക്‌എൻഡ് മാത്രമാണ് തുടർച്ചയായ നിരീക്ഷണത്തിനായി പ്രവർത്തിക്കേണ്ട പ്രധാന പ്രോഗ്രാം.
+
+എന്നാൽ Render സർവീസ് പ്രവർത്തിച്ചിരിക്കണം, ഇന്റർനെറ്റ് കണക്ഷൻ ലഭ്യമായിരിക്കണം, MQTT കണക്ഷൻ നിലനിൽക്കണം.
+
+JSON ഡാറ്റ പുനരാരംഭിക്കലുകൾക്കുശേഷവും നിലനിർത്താൻ അനുയോജ്യമായ persistent disk ആവശ്യമാണ്.
+11. വെബ്‌സൈറ്റ് ഡാഷ്‌ബോർഡ്
+FreshNest വെബ്‌സൈറ്റ് കമ്പ്യൂട്ടറിലും മൊബൈലിലും തുറക്കാം.
+
+ഡാഷ്‌ബോർഡിൽ കാണിക്കാൻ ഉദ്ദേശിക്കുന്ന വിവരങ്ങൾ:
+- പഴക്കൂടയിലെ നിറവ് ശതമാനം.
+- സെൻസറിൽനിന്നുള്ള നിലവിലെ ദൂരം.
+- MQ-3 ഗ്യാസ് റീഡിങ്.
+- ഉപകരണത്തിന്റെ കണക്ഷൻ നില.
+- അവസാനമായി ലഭിച്ച ഡാറ്റയുടെ സമയം.
+- മുൻകാല റീഡിങ്ങുകളുടെ ചാർട്ടുകൾ.
+- അലർട്ട് ചരിത്രം.
+സെറ്റിങ്‌സ് വിഭാഗത്തിൽ നിറവ് പരിധി, പഴക്കൂടയുടെ അളവുകൾ, ഇമെയിൽ വിലാസം, അലർട്ട് ഓപ്ഷനുകൾ എന്നിവ മാറ്റാൻ സാധിക്കും.
+12. ഇമെയിൽ അലർട്ടുകൾ
+പഴക്കൂടയിലെ നിറവ് ഒരു നിശ്ചിത പരിധിക്ക് താഴെയാകുമ്പോൾ ഇമെയിൽ അയയ്ക്കാൻ കഴിയും.
+
+ഉദാഹരണത്തിന്, കുറഞ്ഞ നിറവ് പരിധി 15% ആയി ക്രമീകരിച്ചാൽ:
+- 40% നിറവ്: അലർട്ട് വേണ്ട.
+- 20% നിറവ്: അലർട്ട് വേണ്ട.
+- 14% നിറവ്: അലർട്ട് പ്രവർത്തനക്ഷമമാണെങ്കിൽ ഇമെയിൽ അയയ്ക്കാം.
+നിറവ് തുടർച്ചയായി 14% തന്നെയാണെങ്കിൽ ഒരേ അലർട്ട് ആവർത്തിച്ച് അയയ്ക്കാതിരിക്കാൻ സിസ്റ്റത്തിൽ സംവിധാനം ഉണ്ടായിരിക്കണം.
+
+നിറവ് വീണ്ടും പരിധിക്കു മുകളിലേക്ക് ഉയർന്ന് പിന്നീട് താഴേക്ക് വരുമ്പോൾ പുതിയ അലർട്ട് അയയ്ക്കാം.
+
+ഗ്യാസ് അലർട്ടും ഇതുപോലെ പ്രവർത്തിപ്പിക്കാം. എന്നാൽ അതിന്റെ പരിധി കാലിബ്രേഷൻ കഴിഞ്ഞ് മാത്രം ക്രമീകരിക്കണം.
+
+നിലവിലെ പതിപ്പിൽ സ്വയം പഴങ്ങൾ ഓർഡർ ചെയ്യാനുള്ള സംവിധാനം പ്രവർത്തനക്ഷമമാക്കിയിട്ടില്ല.
+13. JSON സ്റ്റോറേജ്
+JSON എന്നത് JavaScript Object Notation എന്നാണ്.
+
+ഡാറ്റ ലളിതമായ key-value രൂപത്തിൽ സൂക്ഷിക്കാൻ ഉപയോഗിക്കുന്ന ഒരു ഫോർമാറ്റാണിത്.
+
+ഉദാഹരണത്തിന്, പഴക്കൂടയുടെ ഉയരം, കുറഞ്ഞ നിറവ് പരിധി, ഇമെയിൽ വിലാസം തുടങ്ങിയ വിവരങ്ങൾ JSON ഫയലുകളിൽ സൂക്ഷിക്കാം.
+
+FreshNest-ൽ JSON ഉപയോഗിക്കുന്നതിന്റെ പ്രധാന ഗുണം ചെറിയ പ്രോജക്ടിന് ലളിതമായ ഡാറ്റാ സ്റ്റോറേജ് സംവിധാനം ലഭിക്കുന്നു എന്നതാണ്.
+
+എന്നാൽ ഫയലുകൾ ശരിയായ രീതിയിൽ സംരക്ഷിക്കുകയും സുരക്ഷിതമായി കൈകാര്യം ചെയ്യുകയും വേണം.
+14. പ്രോജക്ടിന്റെ ഗുണങ്ങൾ
+- പഴക്കൂടയുടെ നിറവ് ദൂരത്തുനിന്ന് നിരീക്ഷിക്കാം.
+- പഴങ്ങൾ കുറയുമ്പോൾ ഇമെയിൽ അറിയിപ്പ് ലഭിക്കാം.
+- സെൻസർ ഡാറ്റയുടെ ചരിത്രം കാണാം.
+- മൊബൈലിലും കമ്പ്യൂട്ടറിലും വെബ്‌സൈറ്റ് ഉപയോഗിക്കാം.
+- ഉപയോക്താവിന് അലർട്ട് പരിധികൾ ക്രമീകരിക്കാം.
+- ഹാർഡ്‌വെയറും സോഫ്റ്റ്‌വെയറും ഒരുമിച്ച് പ്രവർത്തിക്കുന്ന IoT സംവിധാനം പഠിക്കാം.
+15. പരിമിതികളും ഭാവിയിലെ മെച്ചപ്പെടുത്തലുകളും
+അൾട്രാസോണിക് സെൻസർ ഉപയോഗിച്ച് കൃത്യമായ പഴങ്ങളുടെ ഭാരമോ എണ്ണമോ കണ്ടെത്താൻ കഴിയില്ല.
+
+MQ-3 സെൻസർ മാത്രം ഉപയോഗിച്ച് പഴങ്ങളുടെ കേടുപാടുകൾ ഉറപ്പിക്കാനും കഴിയില്ല.
+
+ഭാവിയിൽ കൂടുതൽ അനുയോജ്യമായ ഗ്യാസ് സെൻസറുകൾ, താപനിലയും ഈർപ്പവും അളക്കുന്ന സെൻസറുകൾ, കൂടുതൽ മെച്ചപ്പെട്ട ഡാറ്റാ വിശകലനം തുടങ്ങിയവ ചേർക്കാം.
+16. ഉപസംഹാരം
+FreshNest Smart Fruit Basket എന്നത് സെൻസറുകൾ, ESP32, MQTT ക്ലൗഡ് കമ്മ്യൂണിക്കേഷൻ, Render ബാക്ക്‌എൻഡ്, JSON സ്റ്റോറേജ്, വെബ് ഡാഷ്‌ബോർഡ്, ഇമെയിൽ അലർട്ടുകൾ എന്നിവ സംയോജിപ്പിച്ച ഒരു IoT പ്രോജക്ടാണ്.
+
+പഴക്കൂടയിലെ ഏകദേശ നിറവ് നിരീക്ഷിക്കുകയും ഉപയോക്താവിന് സമയബന്ധിതമായി വിവരങ്ങൾ നൽകുകയും ചെയ്യുന്നതാണ് ഇതിന്റെ പ്രധാന ലക്ഷ്യം.
+
+ഈ പ്രോജക്ട് ഹാർഡ്‌വെയറും വെബ് സാങ്കേതികവിദ്യകളും എങ്ങനെ ഒന്നിച്ച് പ്രവർത്തിക്കാമെന്ന് കാണിച്ചുതരുന്നു.
+
+നന്ദി.
+
+Part 3 — Viva questions and answers
+These are the most likely questions a teacher or judge may ask. Learn the key ideas, not just the exact wording.
+A. Basic project questions
+Q1. What is FreshNest? / FreshNest എന്താണ്?
+
+English: FreshNest is an IoT-based smart fruit basket that estimates fruit fill level, monitors gas sensor readings, and provides a web dashboard and configurable email alerts.
+
+മലയാളം: പഴക്കൂടയിലെ ഏകദേശ നിറവ് അളക്കുകയും ഗ്യാസ് സെൻസർ റീഡിങ്ങുകൾ നിരീക്ഷിക്കുകയും വെബ് ഡാഷ്‌ബോർഡും ഇമെയിൽ അലർട്ടുകളും നൽകുകയും ചെയ്യുന്ന IoT സംവിധാനമാണ് FreshNest.
+
+Q2. Why did you choose this project? / എന്തുകൊണ്ടാണ് ഈ പ്രോജക്ട് തിരഞ്ഞെടുത്തത്?
+
+English: I wanted to apply IoT technology to a practical everyday problem and build a system that can monitor fruit availability remotely.
+
+മലയാളം: ദൈനംദിന ജീവിതത്തിലെ ഒരു പ്രശ്നത്തിന് IoT സാങ്കേതികവിദ്യ ഉപയോഗിച്ച് പരിഹാരം കണ്ടെത്താനും ദൂരത്തുനിന്ന് പഴങ്ങളുടെ ലഭ്യത നിരീക്ഷിക്കാനും വേണ്ടിയാണ് ഈ പ്രോജക്ട് തിരഞ്ഞെടുത്തത്.
+
+Q3. What is IoT? / IoT എന്താണ്?
+
+English: The Internet of Things connects physical devices equipped with sensors or actuators to systems that can exchange data over a network.
+
+മലയാളം: സെൻസറുകളോ ആക്ചുവേറ്ററുകളോ ഉള്ള ഭൗതിക ഉപകരണങ്ങളെ നെറ്റ്‌വർക്കിലൂടെ ഡാറ്റ കൈമാറാൻ കഴിയുന്ന സംവിധാനങ്ങളുമായി ബന്ധിപ്പിക്കുന്ന സാങ്കേതികവിദ്യയാണ് IoT.
+
+Q4. What is the main innovation? / ഇതിലെ പ്രധാന പുതുമ എന്താണ്?
+
+English: The project integrates fruit-level estimation, gas sensor monitoring, cloud messaging, a remotely accessible dashboard, JSON storage, and email alerts in one system.
+
+മലയാളം: പഴങ്ങളുടെ ഏകദേശ നിറവ്, ഗ്യാസ് സെൻസർ നിരീക്ഷണം, ക്ലൗഡ് കമ്മ്യൂണിക്കേഷൻ, ഓൺലൈൻ ഡാഷ്‌ബോർഡ്, JSON സ്റ്റോറേജ്, ഇമെയിൽ അലർട്ടുകൾ എന്നിവ ഒരൊറ്റ സംവിധാനത്തിൽ സംയോജിപ്പിക്കുന്നതാണ് പ്രധാന പുതുമ.
+
+
+B. Hardware questions
+Q5. Why did you use ESP32 instead of a basic Arduino Uno?
+
+English: ESP32 has built-in Wi-Fi, which makes cloud communication easier without requiring a separate Wi-Fi module.
+
+മലയാളം: ESP32-യിൽ Wi-Fi സൗകര്യം നേരത്തേ ഉള്ളതിനാൽ വേറെ Wi-Fi മോഡ്യൂൾ ഇല്ലാതെ ക്ലൗഡ് കമ്മ്യൂണിക്കേഷൻ നടത്താൻ എളുപ്പമാണ്.
+
+Q6. How does the HC-SR04 work?
+
+English: It emits an ultrasonic pulse and measures the time taken for the reflected echo to return. Distance is calculated using the speed of sound.
+\[
+\text{Distance}=\frac{\text{Speed of sound}\times\text{Time}}{2}
+\]
+
+The division by two accounts for the outgoing and returning journey.
+
+മലയാളം: സെൻസർ അൾട്രാസോണിക് തരംഗം പുറപ്പെടുവിക്കുകയും തിരിച്ചെത്തുന്ന എക്കോയ്ക്ക് എടുക്കുന്ന സമയം അളക്കുകയും ചെയ്യുന്നു. ശബ്ദത്തിന്റെ വേഗവും സമയവും ഉപയോഗിച്ചാണ് ദൂരം കണക്കാക്കുന്നത്. തരംഗം പോയി തിരികെ വരുന്ന ദൂരമായതിനാൽ രണ്ടുകൊണ്ട് ഹരിക്കുന്നു.
+
+Q7. Why does the distance decrease when the basket fills?
+
+English: The fruit surface moves closer to the sensor as the basket fills, so the measured distance decreases.
+
+മലയാളം: പഴക്കൂട നിറയുമ്പോൾ പഴങ്ങളുടെ ഉപരിതലം സെൻസറിനോട് അടുത്തുവരുന്നതിനാൽ അളക്കുന്ന ദൂരം കുറയുന്നു.
+
+Q8. Why did you choose GPIO 34 for the gas sensor?
+
+English: GPIO 34 is an ADC-capable input on the ESP32, so it can read an analog voltage. It is input-only and must receive a safe voltage.
+
+മലയാളം: ESP32-യിലെ GPIO 34 അനലോഗ് വോൾട്ടേജ് വായിക്കാൻ കഴിയുന്ന ADC ഇൻപുട്ടാണ്. ഇത് ഇൻപുട്ട് മാത്രമായി പ്രവർത്തിക്കുന്ന പിനാണ്. അതിലേക്ക് സുരക്ഷിതമായ വോൾട്ടേജ് മാത്രമേ നൽകാവൂ.
+
+Q9. Can you measure the weight of fruit?
+
+English: No. This version does not use a weight sensor. It estimates the fill level from ultrasonic distance measurements.
+
+മലയാളം: ഇല്ല. ഈ പതിപ്പിൽ വെയിറ്റ് സെൻസർ ഇല്ല. അൾട്രാസോണിക് ദൂരം ഉപയോഗിച്ചാണ് പഴക്കൂടയിലെ ഏകദേശ നിറവ് കണക്കാക്കുന്നത്.
+
+
+C. Gas sensing questions
+Q10. Does MQ-3 directly detect rotten fruit?
+
+English: No. MQ-3 is particularly responsive to alcohol vapors. Its reading alone cannot confirm fruit spoilage. A suitable gas sensor and validated calibration would be needed for stronger spoilage detection.
+
+മലയാളം: ഇല്ല. MQ-3 പ്രധാനമായും ആൽക്കഹോൾ വാതകങ്ങളോട് പ്രതികരിക്കുന്നു. ഇതിന്റെ റീഡിങ് മാത്രം ഉപയോഗിച്ച് പഴം കേടായെന്ന് ഉറപ്പിക്കാൻ കഴിയില്ല. കൂടുതൽ വിശ്വസനീയമായ പരിശോധനയ്ക്ക് അനുയോജ്യമായ സെൻസറും ശരിയായ കാലിബ്രേഷനും ആവശ്യമാണ്.
+
+Q11. Why is the gas threshold not configured yet?
+
+English: The sensor must first be tested under normal conditions and with controlled test conditions. A threshold chosen without calibration may create false alarms.
+
+മലയാളം: സാധാരണ സാഹചര്യങ്ങളിലും നിയന്ത്രിത പരീക്ഷണ സാഹചര്യങ്ങളിലും സെൻസർ പരിശോധിക്കേണ്ടതുണ്ട്. കാലിബ്രേഷൻ ഇല്ലാതെ പരിധി നിശ്ചയിച്ചാൽ തെറ്റായ അലർട്ടുകൾ ഉണ്ടാകാം.
+
+
+D. Software and cloud questions
+Q12. What is MQTT?
+
+English: MQTT is a lightweight publish-subscribe messaging protocol designed for efficient communication between devices.
+
+മലയാളം: ഉപകരണങ്ങൾക്കിടയിൽ കാര്യക്ഷമമായി സന്ദേശങ്ങൾ കൈമാറാൻ ഉപയോഗിക്കുന്ന ലഘുവായ publish-subscribe പ്രോട്ടോക്കോളാണ് MQTT.
+
+Q13. What is EMQX Cloud?
+
+English: It is the cloud MQTT broker in FreshNest. It receives messages published by the ESP32 and delivers them to the backend subscribed to the telemetry topic.
+
+മലയാളം: FreshNest-ൽ MQTT ബ്രോക്കറായി പ്രവർത്തിക്കുന്ന ക്ലൗഡ് സേവനമാണ് EMQX. ESP32 അയക്കുന്ന സന്ദേശങ്ങൾ സ്വീകരിച്ച് ബന്ധപ്പെട്ട ബാക്ക്‌എൻഡിലേക്ക് കൈമാറുന്നു.
+
+Q14. Why do you use Render?
+
+English: Render hosts the backend so it can process incoming MQTT data and evaluate alerts without depending on an open browser.
+
+മലയാളം: ഉപയോക്താവിന്റെ ബ്രൗസർ തുറന്നിരിക്കേണ്ടതില്ലാതെ MQTT ഡാറ്റ പ്രോസസ് ചെയ്യാനും അലർട്ടുകൾ പരിശോധിക്കാനും ബാക്ക്‌എൻഡ് പ്രവർത്തിപ്പിക്കുന്നതിനാണ് Render ഉപയോഗിക്കുന്നത്.
+
+Q15. What happens if I close the website?
+
+English: The backend can continue monitoring as long as the Render service remains active and connected to EMQX. The website is only the user interface.
+
+മലയാളം: Render ബാക്ക്‌എൻഡ് പ്രവർത്തിക്കുകയും EMQX-ലേക്ക് ബന്ധിപ്പിച്ചിരിക്കുകയും ചെയ്യുന്നിടത്തോളം വെബ്‌സൈറ്റ് അടച്ചാലും നിരീക്ഷണം തുടരാം. വെബ്‌സൈറ്റ് ഉപയോക്താവിനുള്ള ഇന്റർഫേസാണ്.
+
+Q16. Why use JSON instead of SQL?
+
+English: JSON is simple for storing a small project's settings and history. This implementation does not require a relational database, although JSON files need careful handling when data volume or concurrency grows.
+
+മലയാളം: ചെറിയ പ്രോജക്ടിലെ സെറ്റിങ്‌സും ചരിത്ര ഡാറ്റയും ലളിതമായി സൂക്ഷിക്കാൻ JSON ഉപയോഗിക്കാം. ഈ പതിപ്പിന് relational database ആവശ്യമില്ല. എന്നാൽ ഡാറ്റയും ഒരേസമയം പ്രവർത്തിക്കുന്ന അഭ്യർഥനകളും കൂടുമ്പോൾ JSON ഫയലുകൾ ശ്രദ്ധാപൂർവം കൈകാര്യം ചെയ്യണം.
+
+Q17. Why is a persistent disk needed?
+
+English: A persistent disk helps keep JSON files across restarts and redeployments. Without persistent storage, local files may be lost.
+
+മലയാളം: സർവീസ് പുനരാരംഭിക്കുമ്പോഴും വീണ്ടും ഡിപ്ലോയ് ചെയ്യുമ്പോഴും JSON ഫയലുകൾ നിലനിർത്താൻ persistent disk സഹായിക്കുന്നു. അത് ഇല്ലെങ്കിൽ താൽക്കാലിക ഫയലുകൾ നഷ്ടപ്പെടാം.
+
+
+E. Alerts, security and reliability
+Q18. Why is the low-fruit threshold set to 15%?
+
+English: It is an initial configurable threshold intended to notify the user before the basket becomes nearly empty. It can be changed to suit the user's needs.
+
+മലയാളം: പഴക്കൂട പൂർണമായി കാലിയാകുന്നതിന് മുമ്പ് അറിയിപ്പ് നൽകാനുള്ള പ്രാരംഭ പരിധിയാണ് 15%. ഉപയോക്താവിന്റെ ആവശ്യത്തിന് അനുസരിച്ച് ഇത് മാറ്റാം.
+
+Q19. How do you prevent repeated email alerts?
+
+English: The backend should track whether an alert condition is already active and send another notification only after the condition clears and is triggered again.
+
+മലയാളം: ഒരു അലർട്ട് നിബന്ധന ഇതിനകം സജീവമാണോ എന്ന് ബാക്ക്‌എൻഡ് പരിശോധിക്കണം. ആ നിബന്ധന അവസാനിച്ച് വീണ്ടും സംഭവിക്കുമ്പോൾ മാത്രമേ പുതിയ അറിയിപ്പ് അയയ്ക്കാവൂ.
+
+Q20. What happens if the internet connection fails?
+
+English: The ESP32 may be unable to publish telemetry, and the backend may not receive new measurements. The dashboard should indicate stale data or a disconnected state rather than presenting old readings as current.
+
+മലയാളം: ഇന്റർനെറ്റ് തകരാറിലായാൽ ESP32-ക്ക് ഡാറ്റ അയയ്ക്കാനോ ബാക്ക്‌എൻഡിന് പുതിയ റീഡിങ്ങുകൾ സ്വീകരിക്കാനോ കഴിയാതിരിക്കാം. പഴയ ഡാറ്റയെ പുതിയതെന്നപോലെ കാണിക്കാതെ കണക്ഷൻ നഷ്ടപ്പെട്ടതായി ഡാഷ്‌ബോർഡ് സൂചിപ്പിക്കണം.
+
+Q21. How do you protect passwords?
+
+English: Credentials should be stored as environment variables on the backend host. They should not be placed in public JavaScript files or committed to GitHub.
+
+മലയാളം: പാസ്‌വേഡുകൾ ബാക്ക്‌എൻഡ് ഹോസ്റ്റിലെ environment variables-ൽ സൂക്ഷിക്കണം. പബ്ലിക് JavaScript ഫയലുകളിലോ GitHub-ലോ അവ ചേർക്കരുത്.
+
+
+F. Advanced questions judges may ask
+Q22. Why not use a camera to count fruits?
+
+English: A camera could estimate individual fruit counts, but it requires image processing and may struggle with overlapping fruit. The ultrasonic approach is simpler and focuses on estimating the basket's surface fill level.
+
+മലയാളം: ക്യാമറ ഉപയോഗിച്ച് ഓരോ പഴവും തിരിച്ചറിയാൻ ശ്രമിക്കാം. എന്നാൽ പഴങ്ങൾ പരസ്പരം മൂടിക്കിടക്കുമ്പോൾ കൃത്യമായ എണ്ണം കണ്ടെത്താൻ ബുദ്ധിമുട്ടുണ്ടാകും. അൾട്രാസോണിക് സംവിധാനം ലളിതമാണ്; ഇത് ഉപരിതല നിറവ് കണക്കാക്കുന്നതിലാണ് ശ്രദ്ധിക്കുന്നത്.
+
+Q23. Is the system fully automatic?
+
+English: Sensor monitoring and configured email notifications can be automatic. However, the user must configure the system correctly, and automatic fruit ordering is not enabled in the current version.
+
+മലയാളം: സെൻസർ നിരീക്ഷണവും ക്രമീകരിച്ച ഇമെയിൽ അറിയിപ്പുകളും സ്വയമേവ പ്രവർത്തിക്കാം. എന്നാൽ സിസ്റ്റം ശരിയായി ക്രമീകരിക്കണം. നിലവിലെ പതിപ്പിൽ സ്വയം പഴങ്ങൾ ഓർഡർ ചെയ്യുന്ന സംവിധാനം പ്രവർത്തനക്ഷമമല്ല.
+
+Q24. What is the difference between the frontend and backend?
+
+English: The frontend is the user interface that displays information. The backend processes data, manages settings, evaluates alerts, and provides APIs.
+
+മലയാളം: ഉപയോക്താവിന് വിവരങ്ങൾ കാണിക്കുന്ന ഭാഗമാണ് ഫ്രണ്ട്‌എൻഡ്. ഡാറ്റ പ്രോസസ് ചെയ്യുക, സെറ്റിങ്‌സുകൾ കൈകാര്യം ചെയ്യുക, അലർട്ടുകൾ പരിശോധിക്കുക, API നൽകുക എന്നിവയാണ് ബാക്ക്‌എൻഡിന്റെ ജോലി.
+
+Q25. How can you improve accuracy?
+
+English: I would improve sensor mounting and calibration, filter noisy distance readings, validate the gas sensor under controlled conditions, and consider additional environmental sensors.
+
+മലയാളം: സെൻസറിന്റെ സ്ഥാനം മെച്ചപ്പെടുത്തുക, കൃത്യമായ കാലിബ്രേഷൻ നടത്തുക, ശബ്ദമുള്ള ദൂര റീഡിങ്ങുകൾ ഫിൽട്ടർ ചെയ്യുക, നിയന്ത്രിത സാഹചര്യങ്ങളിൽ ഗ്യാസ് സെൻസർ പരിശോധിക്കുക, കൂടുതൽ പരിസ്ഥിതി സെൻസറുകൾ ചേർക്കുക എന്നിവയിലൂടെ കൃത്യത മെച്ചപ്പെടുത്താം.
+
+
+
+Part 4 — Quick revision before the presentation
+Revision flashcards
+
+1 / 10
+
+What does ESP32 do?
+Show answerPreviousNext question
+
+Final advice for your viva
+Remember these three points especially:
+1. Do not say the MQ-3 proves fruit spoilage. Say it monitors gas sensor readings and requires calibration.
+2. Do not say the basket measures fruit weight. It estimates the fill percentage from ultrasonic distance.
+3. Explain why Render matters: the backend can continue processing telemetry and sending configured alerts even when the website is closed, provided the service and network connections remain operational.
+Present the project as a practical IoT monitoring system, explain its limitations honestly, and describe future improvements as future work rather than features already completed.
